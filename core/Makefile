@@ -969,6 +969,13 @@ ifeq ($(strip $(BOARD_KERNEL_SEPARATED_DT)),true)
   BOOTIMAGE_EXTRA_DEPS    := $(INSTALLED_DTIMAGE_TARGET)
 endif
 
+INSTALLED_BOOTIMAGE_TARGET := $(PRODUCT_OUT)/boot.img
+
+ifeq ($(strip $(BOARD_KERNEL_SEPARATED_DT)),true)
+  INTERNAL_BOOTIMAGE_ARGS += --dt $(INSTALLED_DTIMAGE_TARGET)
+  BOOTIMAGE_EXTRA_DEPS    := $(INSTALLED_DTIMAGE_TARGET)
+endif
+
 # We build recovery as boot image if BOARD_USES_RECOVERY_AS_BOOT is true.
 ifneq ($(BOARD_USES_RECOVERY_AS_BOOT),true)
 ifeq ($(TARGET_BOOTIMAGE_USE_EXT2),true)
@@ -1850,19 +1857,6 @@ endif
 ifdef BOARD_KERNEL_PAGESIZE
   INTERNAL_RECOVERYIMAGE_ARGS += --pagesize $(BOARD_KERNEL_PAGESIZE)
 endif
-ifdef BOARD_INCLUDE_RECOVERY_DTBO
-ifdef BOARD_PREBUILT_RECOVERY_DTBOIMAGE
-  INTERNAL_RECOVERYIMAGE_ARGS += --recovery_dtbo $(BOARD_PREBUILT_RECOVERY_DTBOIMAGE)
-else
-  INTERNAL_RECOVERYIMAGE_ARGS += --recovery_dtbo $(BOARD_PREBUILT_DTBOIMAGE)
-endif
-endif
-ifdef BOARD_INCLUDE_RECOVERY_ACPIO
-  INTERNAL_RECOVERYIMAGE_ARGS += --recovery_acpio $(BOARD_RECOVERY_ACPIO)
-endif
-ifdef BOARD_INCLUDE_DTB_IN_BOOTIMG
-  INTERNAL_RECOVERYIMAGE_ARGS += --dtb $(INSTALLED_DTBIMAGE_TARGET)
-endif
 ifeq ($(strip $(BOARD_KERNEL_SEPARATED_DT)),true)
   INTERNAL_RECOVERYIMAGE_ARGS += --dt $(INSTALLED_DTIMAGE_TARGET)
   RECOVERYIMAGE_EXTRA_DEPS    := $(INSTALLED_DTIMAGE_TARGET)
@@ -1970,66 +1964,34 @@ $(INSTALLED_BOOTIMAGE_TARGET): $(INSTALLED_DTBIMAGE_TARGET)
 endif
 
 $(INSTALLED_BOOTIMAGE_TARGET): $(MKBOOTFS) $(MKBOOTIMG) $(MINIGZIP) \
-	    $(INTERNAL_ROOT_FILES) \
-	    $(INSTALLED_RAMDISK_TARGET) \
-	    $(INTERNAL_RECOVERYIMAGE_FILES) \
-	    $(recovery_initrc) $(recovery_sepolicy) $(recovery_kernel) \
-	    $(INSTALLED_2NDBOOTLOADER_TARGET) \
-	    $(INSTALLED_RECOVERY_BUILD_PROP_TARGET) \
-	    $(recovery_resource_deps) \
-	    $(recovery_fstab) \
-	    $(RECOVERY_INSTALL_OTA_KEYS) \
-	    $(BOARD_RECOVERY_KERNEL_MODULES) \
-	    $(DEPMOD)
-	$(call pretty,"Target boot image from recovery: $@")
-	$(call build-recoveryramdisk)
-	$(hide) $(MKBOOTFS) -d $(TARGET_OUT) $(TARGET_RECOVERY_ROOT_OUT) | $(RECOVERY_RAMDISK_COMPRESSOR) > $(recovery_ramdisk)
-	$(call build-recoveryimage-target, $@)
-endif # BOARD_USES_RECOVERY_AS_BOOT
-
-ifdef BOARD_INCLUDE_RECOVERY_DTBO
-ifdef BOARD_PREBUILT_RECOVERY_DTBOIMAGE
-$(INSTALLED_RECOVERYIMAGE_TARGET): $(BOARD_PREBUILT_RECOVERY_DTBOIMAGE)
-else
-$(INSTALLED_RECOVERYIMAGE_TARGET): $(BOARD_PREBUILT_DTBOIMAGE)
-endif
-endif
-ifdef BOARD_INCLUDE_RECOVERY_ACPIO
-$(INSTALLED_RECOVERYIMAGE_TARGET): $(BOARD_RECOVERY_ACPIO)
-endif
-ifdef BOARD_INCLUDE_DTB_IN_BOOTIMG
-$(INSTALLED_RECOVERYIMAGE_TARGET): $(INSTALLED_DTBIMAGE_TARGET)
+		$(INSTALLED_RAMDISK_TARGET) \
+		$(INTERNAL_RECOVERYIMAGE_FILES) \
+		$(recovery_initrc) $(recovery_sepolicy) $(recovery_kernel) \
+		$(INSTALLED_2NDBOOTLOADER_TARGET) \
+		$(recovery_build_props) $(recovery_resource_deps) \
+		$(recovery_fstab) \
+		$(RECOVERY_INSTALL_OTA_KEYS) \
+		$(INSTALLED_VENDOR_DEFAULT_PROP_TARGET) \
+		$(BOARD_RECOVERY_KERNEL_MODULES) \
+		$(DEPMOD)
+		$(call pretty,"Target boot image from recovery: $@")
+		$(call build-recoveryimage-target, $@)
 endif
 
-$(recovery_uncompressed_ramdisk): $(MKBOOTFS) \
-	    $(INTERNAL_ROOT_FILES) \
-	    $(INSTALLED_RAMDISK_TARGET) \
-	    $(INSTALLED_BOOTIMAGE_TARGET) \
-	    $(INTERNAL_RECOVERYIMAGE_FILES) \
-	    $(recovery_initrc) $(recovery_sepolicy) \
-	    $(INSTALLED_2NDBOOTLOADER_TARGET) \
-	    $(INSTALLED_RECOVERY_BUILD_PROP_TARGET) \
-	    $(recovery_resource_deps) \
-	    $(recovery_root_deps) \
-	    $(recovery_fstab) \
-	    $(RECOVERY_INSTALL_OTA_KEYS) \
-	    $(BOARD_RECOVERY_KERNEL_MODULES) \
-	    $(DEPMOD)
-	$(call build-recoveryramdisk)
-	@echo ----- Making uncompressed recovery ramdisk ------
-	$(hide) $(MKBOOTFS) $(TARGET_RECOVERY_ROOT_OUT) > $@
-
-$(recovery_ramdisk): $(MINIGZIP) \
-	$(recovery_uncompressed_ramdisk)
-	@echo ----- Making compressed recovery ramdisk ------
-	$(hide) $(RECOVERY_RAMDISK_COMPRESSOR) < $(recovery_uncompressed_ramdisk) > $@
-
-ifndef BOARD_CUSTOM_BOOTIMG_MK
-$(INSTALLED_RECOVERYIMAGE_TARGET): $(MKBOOTIMG) $(recovery_ramdisk) $(recovery_kernel) \
-	$(RECOVERYIMAGE_EXTRA_DEPS)
-	@echo ----- Making recovery image ------
-	$(call build-recoveryimage-target, $@)
-endif # BOARD_CUSTOM_BOOTIMG_MK
+$(INSTALLED_RECOVERYIMAGE_TARGET): $(MKBOOTFS) $(MKBOOTIMG) $(MINIGZIP) \
+		$(INSTALLED_RAMDISK_TARGET) \
+		$(INSTALLED_BOOTIMAGE_TARGET) \
+		$(INTERNAL_RECOVERYIMAGE_FILES) \
+		$(recovery_initrc) $(recovery_sepolicy) $(recovery_kernel) \
+		$(RECOVERYIMAGE_EXTRA_DEPS) \
+		$(INSTALLED_2NDBOOTLOADER_TARGET) \
+		$(recovery_build_props) $(recovery_resource_deps) \
+		$(recovery_fstab) \
+		$(RECOVERY_INSTALL_OTA_KEYS) \
+		$(INSTALLED_VENDOR_DEFAULT_PROP_TARGET) \
+		$(BOARD_RECOVERY_KERNEL_MODULES) \
+		$(DEPMOD)
+		$(call build-recoveryimage-target, $@)
 
 ifdef RECOVERY_RESOURCE_ZIP
 $(RECOVERY_RESOURCE_ZIP): $(INSTALLED_RECOVERYIMAGE_TARGET) | $(ZIPTIME)
@@ -3940,13 +3902,13 @@ ifdef BOARD_KERNEL_PAGESIZE
 	$(hide) echo "$(BOARD_KERNEL_PAGESIZE)" > $(zip_root)/$(PRIVATE_RECOVERY_OUT)/pagesize
 endif
 ifdef BOARD_KERNEL_TAGS_ADDR
-	$(hide) echo "$(BOARD_KERNEL_TAGS_ADDR)" > $(zip_root)/$(PRIVATE_RECOVERY_OUT)/tagsaddr
+	$(hide) echo "$(BOARD_KERNEL_TAGS_ADDR)" > $(zip_root)/RECOVERY/tagsaddr
 endif
 ifdef BOARD_RAMDISK_OFFSET
-	$(hide) echo "$(BOARD_RAMDISK_OFFSET)" > $(zip_root)/$(PRIVATE_RECOVERY_OUT)/ramdisk_offset
+	$(hide) echo "$(BOARD_RAMDISK_OFFSET)" > $(zip_root)/RECOVERY/ramdisk_offset
 endif
 ifeq ($(strip $(BOARD_KERNEL_SEPARATED_DT)),true)
-	$(hide) $(ACP) $(INSTALLED_DTIMAGE_TARGET) $(zip_root)/$(PRIVATE_RECOVERY_OUT)/dt
+	$(hide) $(ACP) $(INSTALLED_DTIMAGE_TARGET) $(zip_root)/RECOVERY/dt
 endif
 endif # INSTALLED_RECOVERYIMAGE_TARGET defined or BOARD_USES_RECOVERY_AS_BOOT is true
 	@# Components of the boot image

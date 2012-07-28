@@ -659,7 +659,7 @@ def _BuildBootableImage(sourcedir, fs_config_file, info_dict=None,
     cmd.append("--dt")
     cmd.append(fn)
 
-  args = info_dict.get("mkbootimg_args")
+  args = info_dict.get("mkbootimg_args", None)
   if args and args.strip():
     cmd.extend(shlex.split(args))
 
