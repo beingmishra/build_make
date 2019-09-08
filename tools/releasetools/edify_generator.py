@@ -160,6 +160,9 @@ class EdifyGenerator(object):
     self.script.append(('run_program("/tmp/install/bin/backuptool.sh", "%s", "%s");' % (
         command, system_path)))
 
+  def RunCleanCache(self):
+    self.script.append(('run_program("/system/bin/clean_cache.sh");'))
+
   def ShowProgress(self, frac, dur):
     """Update the progress bar, advancing it over 'frac' over the next
     'dur' seconds.  'dur' may be zero to advance it via SetProgress
@@ -367,10 +370,6 @@ class EdifyGenerator(object):
   def AppendExtra(self, extra):
     """Append text verbatim to the output script."""
     self.script.append(extra)
-
-  def Unmount(self, mount_point):
-    self.script.append('unmount("%s");' % mount_point)
-    self.mounts.remove(mount_point)
 
   def UnmountAll(self):
     for p in sorted(self.mounts):
